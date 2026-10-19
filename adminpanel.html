@@ -1,0 +1,220 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Heshaam Admin Dashboard</title>
+  <!-- Firebase SDKs -->
+  <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore-compat.js"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <style>
+    :root { --bg: #090d16; --panel-bg: #131b2e; --accent: #6366f1; --danger: #ef4444; --text-main: #f8fafc; --text-muted: #94a3b8; --border: rgba(255, 255, 255, 0.08); }
+    * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Plus Jakarta Sans', sans-serif; }
+    body { background: var(--bg); color: var(--text-main); min-height: 100vh; display: flex; align-items: center; justify-content: center; padding: 24px; }
+    .admin-card { background: var(--panel-bg); border: 1px solid var(--border); padding: 36px 30px; border-radius: 24px; width: 100%; max-width: 600px; max-height: 90vh; overflow-y: auto; }
+    h2 { font-size: 1.5rem; font-weight: 700; margin-bottom: 20px; text-align: center; }
+    .section-title { font-size: 0.95font-weight: 600; color: var(--text-muted); margin: 24px 0 12px; }
+    .preview-container { display: flex; align-items: center; gap: 16px; margin-bottom: 14px; background: rgba(9, 13, 22, 0.6); padding: 12px; border-radius: 14px; border: 1px solid var(--border); }
+    .preview-img { width: 60px; height: 60px; border-radius: 50%; object-fit: cover; border: 2px solid var(--accent); }
+    input[type="text"], input[type="file"], input[type="password"], textarea { width: 100%; padding: 12px 16px; border-radius: 12px; border: 1px solid var(--border); background: rgba(9, 13, 22, 0.8); color: #fff; font-size: 0.92px; outline: none; margin-bottom: 12px; }
+    .btn { width: 100%; padding: 12px; border-radius: 12px; border: none; background: var(--accent); color: #fff; font-weight: 600; cursor: pointer; }
+    .link-row { display: flex; gap: 8px; margin-bottom: 10px; align-items: center; }
+    .btn-delete { background: rgba(239, 68, 68, 0.15); color: var(--danger); border: 1px solid rgba(239, 68, 68, 0.3); width: 44px; height: 44px; border-radius: 10px; cursor: pointer; display: flex; align-items: center; justify-content: center; }
+    .logs-box { background: rgba(9, 13, 22, 0.6); border: 1px solid var(--border); border-radius: 12px; padding: 12px; max-height: 250px; overflow-y: auto; font-size: 0.82rem; }
+    .log-item { padding: 8px 0; border-bottom: 1px solid rgba(255, 255, 255, 0.05); color: var(--text-muted); }
+    .hidden { display: none !important; }
+    .back-link { display: block; text-align: center; color: var(--text-muted); text-decoration: none; margin-top: 20px; font-size: 0.9rem; }
+  </style>
+</head>
+<body>
+  <!-- Login Screen -->
+  <div id="authBox" class="admin-card">
+    <h2><i class="fa-solid fa-lock" style="color: var(--accent);"></i> Heshaam Admin Access</h2>
+    <p style="color: var(--text-muted); text-align: center; font-size: 0.9rem; margin-bottom: 20px;">Password is: heshaamaug</p>
+    <input type="password" id="adminPassword" placeholder="Enter Password..." onkeydown="if(event.key === 'Enter') verifyPassword()" />
+    <button class="btn" onclick="verifyPassword()">Login</button>
+  </div>
+
+  <!-- Admin Controls Screen -->
+  <div id="adminControls" class="admin-card hidden">
+    <h2>Heshaam Dashboard</h2>
+   
+    <div class="section-title">Bio / Subtitle Message</div>
+    <textarea id="bioInput" placeholder="Write a short sub-headline..."></textarea>
+    <button class="btn" onclick="saveBioToFirestore()">Update Bio</button>
+
+    <div class="section-title">Secret Area Configuration</div>
+    <input type="text" id="secretPasswordInputAdmin" placeholder="Secret Password" />
+    <textarea id="secretMessageInputAdmin" placeholder="Secret Romantic Message"></textarea>
+    <button class="btn" onclick="saveSecretConfigToFirestore()">Update Secret Settings</button>
+
+    <div class="section-title">Profile Logo Management</div>
+    <div class="preview-container">
+      <img id="logoPreview" class="preview-img" src="https://via.placeholder.com/110" alt="Preview" />
+      <div><p style="font-size: 0.85rem; font-weight: 600;">Active Logo</p></div>
+    </div>
+    <input type="file" id="logoFileInput" accept="image/*" onchange="previewFile()" />
+    <button class="btn" onclick="uploadLogoToFirestore()">Upload & Sync Logo</button>
+
+    <div class="section-title">Manage Hub Links</div>
+    <div id="linksList" style="max-height: 200px; overflow-y: auto;">Loading links...</div>
+    <div style="background: rgba(9, 13, 22, 0.4); padding: 12px; border-radius: 12px; margin-top: 10px;">
+      <input type="text" id="newTitle" placeholder="Title (e.g. Instagram)" />
+      <input type="text" id="newUrl" placeholder="URL (https://...)" />
+      <button class="btn" onclick="addNewLink()">Add Link</button>
+    </div>
+
+    <div class="section-title">Visitors Logs (Heshaam Folder)</div>
+    <div id="visitorLogsList" class="logs-box">Loading logs...</div>
+
+    <div class="section-title">Visitor Secret Notes (Heshaam Folder)</div>
+    <div id="adminNotesList" class="logs-box">Loading notes...</div>
+
+    <a class="back-link" href="index.html"><i class="fa-solid fa-globe"></i> View Heshaam's Live Profile Hub</a>
+  </div>
+
+  <script>
+    const firebaseConfig = {
+      apiKey: "AIzaSyACVwVXRB_5nTFozs0PV22zd6wSpZuBVqE",
+      authDomain: "reakweb.firebaseapp.com",
+      databaseURL: "https://reakweb-default-rtdb.firebaseio.com",
+      projectId: "reakweb",
+      storageBucket: "reakweb.firebasestorage.app",
+      messagingSenderId: "228639861953",
+      appId: "1:228639861953:web:2941663bb550703b61b840"
+    };
+    if (!firebase.apps.length) firebase.initializeApp(firebaseConfig);
+    const db = firebase.firestore();
+
+    const HESHAAM_DOC = db.collection('heshaam').doc('profile_data');
+    let currentLinks = [];
+
+    function verifyPassword() {
+      const inputPass = document.getElementById('adminPassword').value;
+      if (inputPass === "heshaamaug") {
+        document.getElementById('authBox').classList.add('hidden');
+        document.getElementById('adminControls').classList.remove('hidden');
+        loadFirestoreData();
+        loadVisitorLogs();
+        loadAdminNotes();
+      } else {
+        alert("Incorrect password! Try 'heshaamaug'");
+      }
+    }
+
+    function loadFirestoreData() {
+      HESHAAM_DOC.onSnapshot((doc) => {
+        if (doc.exists) {
+          const data = doc.data();
+          if (data.logo) document.getElementById('logoPreview').src = data.logo;
+          if (data.bio) document.getElementById('bioInput').value = data.bio;
+          if (data.secretPassword) document.getElementById('secretPasswordInputAdmin').value = data.secretPassword;
+          if (data.secretMessage) document.getElementById('secretMessageInputAdmin').value = data.secretMessage;
+          currentLinks = data.links || [];
+          renderAdminLinks();
+        }
+      });
+    }
+
+    function saveBioToFirestore() {
+      HESHAAM_DOC.set({ bio: document.getElementById('bioInput').value.trim() }, { merge: true }).then(() => alert("Bio saved!"));
+    }
+
+    function saveSecretConfigToFirestore() {
+      HESHAAM_DOC.set({
+        secretPassword: document.getElementById('secretPasswordInputAdmin').value.trim(),
+        secretMessage: document.getElementById('secretMessageInputAdmin').value.trim()
+      }, { merge: true }).then(() => alert("Secret updated!"));
+    }
+
+    function previewFile() {
+      const file = document.getElementById('logoFileInput').files[0];
+      if (file) {
+        const reader = new FileReader();
+        reader.onload = e => document.getElementById('logoPreview').src = e.target.result;
+        reader.readAsDataURL(file);
+      }
+    }
+
+    function uploadLogoToFirestore() {
+      const file = document.getElementById('logoFileInput').files[0];
+      if (!file) return alert("Select an image file.");
+      const reader = new FileReader();
+      reader.onload = e => {
+        HESHAAM_DOC.set({ logo: e.target.result }, { merge: true }).then(() => alert("Logo saved!"));
+      };
+      reader.readAsDataURL(file);
+    }
+
+    function renderAdminLinks() {
+      const container = document.getElementById('linksList');
+      container.innerHTML = '';
+      currentLinks.forEach((link, index) => {
+        const div = document.createElement('div');
+        div.className = 'link-row';
+        div.innerHTML = `
+          <input type="text" value="${link.title}" onchange="updateLink(${index}, 'title', this.value)" />
+          <input type="text" value="${link.url}" onchange="updateLink(${index}, 'url', this.value)" />
+          <button class="btn-delete" onclick="deleteLink(${index})"><i class="fa-solid fa-trash"></i></button>
+        `;
+        container.appendChild(div);
+      });
+    }
+
+    function updateLink(index, key, value) {
+      currentLinks[index][key] = value;
+      HESHAAM_DOC.set({ links: currentLinks }, { merge: true });
+    }
+
+    function deleteLink(index) {
+      currentLinks.splice(index, 1);
+      HESHAAM_DOC.set({ links: currentLinks }, { merge: true });
+    }
+
+    function addNewLink() {
+      const title = document.getElementById('newTitle').value.trim();
+      const url = document.getElementById('newUrl').value.trim();
+      if (title && url) {
+        currentLinks.push({ title, url });
+        document.getElementById('newTitle').value = '';
+        document.getElementById('newUrl').value = '';
+        HESHAAM_DOC.set({ links: currentLinks }, { merge: true });
+      } else {
+        alert("Enter both title and URL.");
+      }
+    }
+
+    function loadVisitorLogs() {
+      db.collection('heshaam').doc('subfolders').collection('visitors_logs').onSnapshot((snapshot) => {
+        const container = document.getElementById('visitorLogsList');
+        container.innerHTML = '';
+        if (snapshot.empty) {
+          container.innerHTML = '<div class="log-item">No visitor logs yet.</div>';
+          return;
+        }
+        snapshot.forEach(doc => {
+          const d = doc.data();
+          container.innerHTML += `<div class="log-item"><b>${d.visitorName || 'Stranger'}</b> from ${d.country || 'Unknown'} (${d.ip}) at ${d.time}</div>`;
+        });
+      });
+    }
+
+    function loadAdminNotes() {
+      db.collection('heshaam').doc('subfolders').collection('visitors_notes').onSnapshot((snapshot) => {
+        const container = document.getElementById('adminNotesList');
+        container.innerHTML = '';
+        if (snapshot.empty) {
+          container.innerHTML = '<div class="log-item">No secret notes received yet.</div>';
+          return;
+        }
+        snapshot.forEach(doc => {
+          const d = doc.data();
+          container.innerHTML += `<div class="log-item"><b>From: ${d.sender}</b> (${d.time}): <br/>${d.note}</div>`;
+        });
+      });
+    }
+  </script>
+</body>
+</html>
